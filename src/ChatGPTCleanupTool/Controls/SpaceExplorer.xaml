@@ -1,0 +1,159 @@
+<UserControl x:Class="ChatGPTCleanupTool.Controls.SpaceExplorer"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:ChatGPTCleanupTool.Controls"
+             xmlns:model="clr-namespace:ChatGPTCleanupTool.Models" Background="White" FontWeight="Normal">
+    <UserControl.Resources>
+        <HierarchicalDataTemplate DataType="{x:Type model:DiskTreeNode}" ItemsSource="{Binding Directories}">
+            <TextBlock Text="{Binding TreeLabel}" ToolTip="{Binding FullPath}" FontSize="12" Padding="2,5" />
+        </HierarchicalDataTemplate>
+        <Style x:Key="ExplorerGrid" TargetType="DataGrid" BasedOn="{StaticResource {x:Type DataGrid}}">
+            <Setter Property="AutoGenerateColumns" Value="False" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="EnableRowVirtualization" Value="True" />
+            <Setter Property="EnableColumnVirtualization" Value="True" />
+            <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+            <EventSetter Event="SelectionChanged" Handler="Entries_SelectionChanged" />
+            <EventSetter Event="MouseDoubleClick" Handler="Entries_DoubleClick" />
+        </Style>
+    </UserControl.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Border Background="#EFF5FF" Padding="10,8" CornerRadius="8,8,0,0">
+            <DockPanel>
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                    <Button Content="← 返回" Click="Back_Click" Padding="9,4" MinHeight="30" Margin="0,0,6,0" />
+                    <Button Content="↑ 上级" Click="Up_Click" Padding="9,4" MinHeight="30" Margin="0,0,6,0" />
+                    <Button Content="总览" Click="Home_Click" Padding="9,4" MinHeight="30" />
+                </StackPanel>
+                <ComboBox x:Name="MetricBox" DockPanel.Dock="Right" Width="150" Margin="8,0,0,0"
+                          VerticalContentAlignment="Center" SelectedIndex="0" SelectionChanged="Metric_Changed">
+                    <ComboBoxItem Content="面积：实际占用" />
+                    <ComboBoxItem Content="面积：逻辑大小" />
+                </ComboBox>
+                <TextBlock x:Name="CurrentPath" Margin="12,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"
+                           FontWeight="SemiBold" Text="扫描磁盘或目录，查看完整空间树" />
+            </DockPanel>
+        </Border>
+        <TextBlock x:Name="CurrentStats" Grid.Row="1" Margin="12,8" Foreground="#475569"
+                   Text="目录树可逐级展开 · 点击目录色块下钻 · 右键查看操作" TextWrapping="Wrap" />
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="260" MinWidth="180" />
+                <ColumnDefinition Width="5" />
+                <ColumnDefinition Width="*" MinWidth="400" />
+            </Grid.ColumnDefinitions>
+            <Border BorderBrush="#E2E8F0" BorderThickness="0,1,1,0">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="完整目录树" Margin="12,10" FontWeight="SemiBold" />
+                    <TreeView x:Name="DirectoryTree" BorderThickness="0" Padding="4"
+                              SelectedItemChanged="Tree_Selected"
+                              VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                              ScrollViewer.CanContentScroll="True">
+                        <TreeView.ItemContainerStyle>
+                            <Style TargetType="TreeViewItem">
+                                <Setter Property="IsExpanded" Value="{Binding IsScanRoot, Mode=OneWay}" />
+                                <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+                                <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+                                <Setter Property="ItemsPanel">
+                                    <Setter.Value><ItemsPanelTemplate><VirtualizingStackPanel /></ItemsPanelTemplate></Setter.Value>
+                                </Setter>
+                            </Style>
+                        </TreeView.ItemContainerStyle>
+                    </TreeView>
+                </DockPanel>
+            </Border>
+            <GridSplitter Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="#E2E8F0" />
+            <TabControl x:Name="Views" Grid.Column="2" BorderThickness="0" Margin="6,0,0,0">
+                <TabItem Header="矩形树图">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <local:DiskTreemap x:Name="Map" Margin="4" />
+                        <DockPanel Grid.Row="1" Margin="8,6">
+                            <TextBlock DockPanel.Dock="Top" Text="扩展名配色（整个扫描范围，前 10 类；目录为深灰蓝）" Foreground="#64748B" FontSize="11" />
+                            <ItemsControl x:Name="Legend" Margin="0,4,0,0">
+                                <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" Margin="0,0,12,4" ToolTip="{Binding AllocatedSize}">
+                                            <Border Background="{Binding Color}" Width="10" Height="10" CornerRadius="2" Margin="0,0,5,0" />
+                                            <TextBlock Text="{Binding Label}" FontSize="11" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </DockPanel>
+                    </Grid>
+                </TabItem>
+                <TabItem Header="目录明细">
+                    <DockPanel>
+                        <TextBox x:Name="EntrySearch" DockPanel.Dock="Top" Margin="5" TextChanged="Search_Changed"
+                                 ToolTip="筛选当前目录的名称、路径、扩展名；不改变扫描统计" />
+                        <DataGrid x:Name="Entries" Style="{StaticResource ExplorerGrid}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="名称（双击目录进入）" Width="2*" MinWidth="160" Binding="{Binding Name}" />
+                                <DataGridTextColumn Header="类型" Width="55" Binding="{Binding Kind}" />
+                                <DataGridTextColumn Header="逻辑大小" Width="105" Binding="{Binding LogicalSize}" SortMemberPath="LogicalBytes" />
+                                <DataGridTextColumn Header="实际占用" Width="105" Binding="{Binding AllocatedSize}" SortMemberPath="AllocatedBytes" />
+                                <DataGridTextColumn Header="文件数" Width="75" Binding="{Binding FileCount, StringFormat=N0}" />
+                                <DataGridTextColumn Header="状态" Width="140" Binding="{Binding State}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </TabItem>
+                <TabItem Header="增长最快">
+                    <DockPanel>
+                        <TextBlock x:Name="GrowthNote" DockPanel.Dock="Top" Margin="10" Foreground="#64748B" TextWrapping="Wrap"
+                                   Text="首次扫描建立基线；下次扫描同一范围后比较。" />
+                        <DataGrid x:Name="GrowthGrid" Style="{StaticResource ExplorerGrid}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="目录" Width="110" Binding="{Binding Name}" />
+                                <DataGridTextColumn Header="位置" Width="2*" MinWidth="200" Binding="{Binding FullPath}">
+                                    <DataGridTextColumn.ElementStyle>
+                                        <Style TargetType="TextBlock"><Setter Property="ToolTip" Value="{Binding FullPath}" /><Setter Property="TextTrimming" Value="CharacterEllipsis" /></Style>
+                                    </DataGridTextColumn.ElementStyle>
+                                </DataGridTextColumn>
+                                <DataGridTextColumn Header="占用增长" Width="100" Binding="{Binding GrowthSize}" SortMemberPath="GrowthBytes" />
+                                <DataGridTextColumn Header="逻辑增长" Width="100" Binding="{Binding LogicalGrowthSize}" SortMemberPath="LogicalGrowthBytes" />
+                                <DataGridTextColumn Header="增长速率" Width="115" Binding="{Binding GrowthRate}" SortMemberPath="GrowthBytesPerDay" />
+                                <DataGridTextColumn Header="对比时间" Width="130" Binding="{Binding ComparedAtLocal, StringFormat={}{0:MM-dd HH:mm:ss}}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </TabItem>
+                <TabItem Header="大文件">
+                    <DataGrid x:Name="LargestGrid" Style="{StaticResource ExplorerGrid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="文件名" Width="150" Binding="{Binding Name}" />
+                            <DataGridTextColumn Header="完整路径（最多 200 项）" Width="2*" MinWidth="190" Binding="{Binding FullPath}" />
+                            <DataGridTextColumn Header="逻辑大小" Width="105" Binding="{Binding LogicalSize}" SortMemberPath="LogicalBytes" />
+                            <DataGridTextColumn Header="实际占用" Width="105" Binding="{Binding AllocatedSize}" SortMemberPath="AllocatedBytes" />
+                            <DataGridTextColumn Header="存储方式" Width="160" Binding="{Binding State}" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+                <TabItem Header="排除管理">
+                    <DockPanel Margin="10">
+                        <TextBlock DockPanel.Dock="Top" Text="排除目录将同时保护其子文件。移除后，重新扫描才会纳入统计。"
+                                   TextWrapping="Wrap" Margin="0,0,0,8" Foreground="#64748B" />
+                        <Button DockPanel.Dock="Bottom" Content="移除选中的排除项" Click="RemoveExclusion_Click" Margin="0,8,0,0" />
+                        <ListBox x:Name="ExclusionsList" />
+                    </DockPanel>
+                </TabItem>
+            </TabControl>
+        </Grid>
+        <Border Grid.Row="3" Background="#F8FAFC" Padding="12,8" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0">
+            <TextBlock x:Name="SelectionStats" Text="选中项目后显示大小、占用和文件数；右键操作不会自动删除。" TextTrimming="CharacterEllipsis" />
+        </Border>
+    </Grid>
+</UserControl>

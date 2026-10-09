@@ -1,0 +1,938 @@
+<Window x:Class="ChatGPTCleanupTool.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:ChatGPTCleanupTool.Controls"
+        Title="磁盘空间助手"
+        Width="1320"
+        Height="860"
+        MinWidth="1080"
+        MinHeight="720"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource PageBrush}"
+        Loaded="Window_Loaded"
+        Closing="Window_Closing">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="12" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock FontSize="28"
+                           FontWeight="Bold"
+                           Text="磁盘空间助手" />
+                <TextBlock Margin="0,6,0,0"
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="14"
+                           Text="先分析，再决定；默认只选择可重新生成的低风险文件。" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <WrapPanel HorizontalAlignment="Right">
+                    <CheckBox x:Name="FastModeCheckBox"
+                              Margin="0,0,14,0"
+                              VerticalAlignment="Center"
+                              Content="加速模式"
+                              ToolTip="已默认开启。关闭后会执行更完整的元数据读取；结果更精确但速度更慢。"
+                              IsChecked="True" />
+                    <CheckBox x:Name="DryRunCheckBox"
+                              Margin="0,0,14,0"
+                              VerticalAlignment="Center"
+                              Content="模拟清理"
+                              ToolTip="打开后清理动作只做预演，不修改文件，但会继续进行删除前一致性校验。"
+                              IsChecked="False" />
+                    <Button Margin="0,0,10,0"
+                            Style="{StaticResource SecondaryButton}"
+                            Click="OpenLogButton_Click"
+                            Content="清理历史" />
+                    <Button x:Name="CancelButton"
+                            Style="{StaticResource SecondaryButton}"
+                            Visibility="Collapsed"
+                            Click="CancelButton_Click"
+                            Content="取消当前操作" />
+                </WrapPanel>
+                <WrapPanel Margin="0,8,0,0" HorizontalAlignment="Right">
+                    <TextBlock Margin="0,0,8,0"
+                               VerticalAlignment="Center"
+                               Foreground="{StaticResource MutedBrush}"
+                               Text="结果检索" />
+                    <TextBox x:Name="ResultSearchTextBox"
+                             Width="240"
+                             ToolTip="按名称、路径、类别或状态筛选当前结果"
+                             TextChanged="ResultSearchTextBox_TextChanged" />
+                    <Button Margin="10,0,0,0"
+                            Style="{StaticResource SecondaryButton}"
+                            Click="ClearResultSearchButton_Click"
+                            Content="清空" />
+                    <Button Margin="10,0,0,0"
+                            Style="{StaticResource PrimaryButton}"
+                            Click="ExportCurrentResultsButton_Click"
+                            Content="导出当前结果" />
+                </WrapPanel>
+            </StackPanel>
+        </Grid>
+
+        <TabControl Grid.Row="4"
+                    x:Name="MainTabControl"
+                    FontFamily="Microsoft YaHei UI"
+                    FontSize="14">
+            <TabItem Header="快速清理">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Border Padding="16"
+                            Background="{StaticResource CardBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="9">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="只处理超过" />
+                            <TextBox x:Name="DaysTextBox"
+                                     Grid.Column="1"
+                                     Margin="8,0"
+                                     Padding="8,6"
+                                     VerticalContentAlignment="Center"
+                                     Text="7"
+                                     TextAlignment="Center"
+                                     PreviewTextInput="NumericTextBox_PreviewTextInput"
+                                     TextChanged="ScanOptions_TextChanged" />
+                            <TextBlock Grid.Column="2"
+                                       VerticalAlignment="Center"
+                                       Text="天的文件" />
+                            <Button x:Name="ScanButton"
+                                    Grid.Column="4"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Click="ScanButton_Click"
+                                    Content="扫描可清理文件" />
+                            <Button Grid.Column="6"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="OpenCodexFolderButton_Click"
+                                    Content="打开 Codex 目录" />
+
+                            <TextBlock Grid.Row="2"
+                                       VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="开发项目目录" />
+                            <TextBox x:Name="ProjectPathTextBox"
+                                     Grid.Row="2"
+                                     Grid.Column="1"
+                                     Grid.ColumnSpan="5"
+                                     Margin="8,0,12,0"
+                                     Padding="9,6"
+                                     TextChanged="ScanOptions_TextChanged"
+                                     ToolTip="选择后会额外查找 bin、obj、.vs、node_modules 等项目产物" />
+                            <Button Grid.Row="2"
+                                    Grid.Column="6"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="BrowseProjectButton_Click"
+                                    Content="选择目录" />
+                            <TextBlock Grid.Row="2"
+                                       Grid.Column="7"
+                                       Margin="14,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontSize="12"
+                                       Text="可选；项目清理项默认不勾选" />
+                        </Grid>
+                    </Border>
+
+                    <Grid Grid.Row="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="3*" />
+                            <RowDefinition Height="10" />
+                            <RowDefinition Height="2*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Background="White"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="9">
+                            <DataGrid x:Name="CategoryGrid"
+                                      Margin="1"
+                                      AutoGenerateColumns="False"
+                                      CanUserAddRows="False"
+                                      CanUserDeleteRows="False"
+                                      CanUserReorderColumns="False"
+                                      HeadersVisibility="Column"
+                                      GridLinesVisibility="Horizontal"
+                                      EnableRowVirtualization="True"
+                                      EnableColumnVirtualization="True"
+                                      VirtualizingPanel.IsVirtualizing="True"
+                                      VirtualizingPanel.VirtualizationMode="Recycling"
+                                      ScrollViewer.CanContentScroll="True"
+                                      HorizontalGridLinesBrush="#EEF1F5"
+                                      BorderThickness="0"
+                                      RowHeight="46"
+                                      ColumnHeaderHeight="38"
+                                      ItemsSource="{Binding Categories}"
+                                      SelectionChanged="CategoryGrid_SelectionChanged">
+                                <DataGrid.Columns>
+                                    <DataGridCheckBoxColumn Width="58"
+                                                            Header="清理"
+                                                            Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                    <DataGridTextColumn Width="90"
+                                                        Header="分组"
+                                                        IsReadOnly="True"
+                                                        Binding="{Binding Group}" />
+                                    <DataGridTextColumn Width="190"
+                                                        Header="类别"
+                                                        IsReadOnly="True"
+                                                        Binding="{Binding Name}" />
+                                    <DataGridTextColumn Width="65"
+                                                        Header="风险"
+                                                        IsReadOnly="True"
+                                                        Binding="{Binding Risk}" />
+                                    <DataGridTextColumn Width="85"
+                                                        Header="文件数"
+                                                        IsReadOnly="True"
+                                                        Binding="{Binding FileCount}" />
+                                    <DataGridTextColumn Width="115"
+                                                        Header="可释放空间"
+                                                        IsReadOnly="True"
+                                                        Binding="{Binding DisplaySize}" />
+                                    <DataGridTextColumn Width="*"
+                                                        MinWidth="280"
+                                                        Header="说明"
+                                                        IsReadOnly="True"
+                                                        Binding="{Binding Description}" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Border>
+
+                        <Border Grid.Row="2"
+                                Padding="12"
+                                Background="White"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="9">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="8" />
+                                    <RowDefinition Height="*" />
+                                </Grid.RowDefinitions>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock x:Name="DetailTitleTextBlock"
+                                               FontWeight="SemiBold"
+                                               Text="选择一个清理类别查看文件明细" />
+                                    <Button Grid.Column="1"
+                                            Padding="12,5"
+                                            Style="{StaticResource SecondaryButton}"
+                                            Click="OpenSelectedCleanupFileButton_Click"
+                                            Content="打开所选文件位置" />
+                                </Grid>
+                                <DataGrid x:Name="DetailGrid"
+                                          Grid.Row="2"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          HeadersVisibility="Column"
+                                          GridLinesVisibility="Horizontal"
+                                          EnableRowVirtualization="True"
+                                          EnableColumnVirtualization="True"
+                                          VirtualizingPanel.IsVirtualizing="True"
+                                          VirtualizingPanel.VirtualizationMode="Recycling"
+                                          ScrollViewer.CanContentScroll="True"
+                                          BorderThickness="0"
+                                          ItemsSource="{Binding DetailFiles}">
+                                    <DataGrid.Columns>
+                                        <DataGridCheckBoxColumn Width="70"
+                                                                Header="永久排除"
+                                                                Binding="{Binding IsExcluded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                        <DataGridTextColumn Width="110"
+                                                            Header="大小"
+                                                            IsReadOnly="True"
+                                                            Binding="{Binding DisplaySize}" />
+                                        <DataGridTextColumn Width="150"
+                                                            Header="修改时间"
+                                                            IsReadOnly="True"
+                                                            Binding="{Binding LastWriteTime, StringFormat={}{0:yyyy-MM-dd HH:mm}}" />
+                                        <DataGridTextColumn Width="*"
+                                                            Header="完整路径"
+                                                            IsReadOnly="True"
+                                                            Binding="{Binding FullPath}" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+
+                    <Grid Grid.Row="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock x:Name="SummaryTextBlock"
+                                       FontSize="15"
+                                       FontWeight="SemiBold"
+                                       Text="尚未扫描" />
+                            <TextBlock Margin="0,5,0,0"
+                                       Foreground="{StaticResource MutedBrush}"
+                                       FontSize="12"
+                                       Text="勾选“永久排除”的文件会在以后扫描中继续受到保护。" />
+                        </StackPanel>
+                        <Button x:Name="CleanupButton"
+                                Grid.Column="1"
+                                MinWidth="160"
+                                Style="{StaticResource PrimaryButton}"
+                                IsEnabled="False"
+                                Click="CleanupButton_Click"
+                                Content="清理已选项目" />
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Codex 智能建议">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Border Padding="16"
+                            Background="White"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="9">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="12" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="78" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="Codex 根目录" />
+                            <TextBox x:Name="CodexSmartRootTextBox"
+                                     Grid.Row="0"
+                                     Grid.Column="1"
+                                     Margin="8,0"
+                                     Padding="9,6" />
+                            <Button Grid.Row="0"
+                                    Grid.Column="3"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="BrowseCodexSmartRootButton_Click"
+                                    Content="选择目录" />
+                            <TextBlock Grid.Row="0"
+                                       Grid.Column="5"
+                                       VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="只看大于" />
+                            <TextBox x:Name="CodexSmartMinimumTextBox"
+                                     Grid.Row="0"
+                                     Grid.Column="6"
+                                     Margin="6,0"
+                                     Padding="8,6"
+                                     Text="20"
+                                     TextAlignment="Center"
+                                     PreviewTextInput="NumericTextBox_PreviewTextInput" />
+                            <TextBlock Grid.Row="0"
+                                       Grid.Column="7"
+                                       VerticalAlignment="Center"
+                                       Text="MB" />
+                            <TextBlock Grid.Row="0"
+                                       Grid.Column="9"
+                                       VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="未访问超过" />
+                            <TextBox x:Name="CodexSmartAgeTextBox"
+                                     Grid.Row="0"
+                                     Grid.Column="10"
+                                     Margin="6,0"
+                                     Padding="8,6"
+                                     Text="14"
+                                     TextAlignment="Center"
+                                     PreviewTextInput="NumericTextBox_PreviewTextInput" />
+                            <TextBlock Grid.Row="0"
+                                       Grid.Column="11"
+                                       VerticalAlignment="Center"
+                                       Text="天" />
+                            <Button x:Name="CodexSmartScanButton"
+                                    Grid.Row="0"
+                                    Grid.Column="12"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Click="CodexSmartScanButton_Click"
+                                    Content="扫描 Codex 文件" />
+                            <StackPanel Grid.Row="2" Grid.ColumnSpan="13">
+                                <TextBlock FontWeight="SemiBold"
+                                           Text="说明：只显示高置信度可清理候选，排序按推荐分值（越高越建议清理）。" />
+                                <TextBlock Margin="0,4,0,0"
+                                           Foreground="{StaticResource MutedBrush}"
+                                           FontSize="12"
+                                           Text="评分依据：未访问时长、文件目录类型、扩展名和文件体积。可根据提示在列表里逐项确认后再删除。" />
+                                <CheckBox x:Name="CodexSmartDetectDuplicatesCheckBox"
+                                          Margin="0,10,0,0"
+                                          Content="扫描后识别重复文件（按哈希，耗时更长）"
+                                          IsChecked="False" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2"
+                            Background="White"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="9">
+                        <DataGrid x:Name="CodexSmartGrid"
+                                  Margin="1"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  CanUserReorderColumns="False"
+                                  HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  EnableRowVirtualization="True"
+                                  EnableColumnVirtualization="True"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="True"
+                                  HorizontalGridLinesBrush="#EEF1F5"
+                                  BorderThickness="0"
+                                  ItemsSource="{Binding CodexSmartFiles}"
+                                  SelectionChanged="CodexSmartGrid_SelectionChanged">
+                            <DataGrid.Columns>
+                                <DataGridCheckBoxColumn Width="55"
+                                                       Header="删除"
+                                                       Binding="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridCheckBoxColumn Width="55"
+                                                       Header="保留"
+                                                       Binding="{Binding IsExcluded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                                <DataGridTextColumn Width="105"
+                                                   Header="优先级"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding Group}" />
+                                <DataGridTextColumn Width="82"
+                                                   Header="扩展名"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding Extension}" />
+                                <DataGridTextColumn Width="110"
+                                                   Header="所在目录"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding FolderHint}" />
+                                <DataGridTextColumn Width="75"
+                                                   Header="重复组"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding DuplicateGroup}" />
+                                <DataGridTextColumn Width="65"
+                                                   Header="重复数"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding DuplicateCount}" />
+                                <DataGridTextColumn Width="105"
+                                                   Header="建议"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding Recommendation}" />
+                                <DataGridTextColumn Width="80"
+                                                   Header="分值"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding RecommendationScore}" />
+                                <DataGridTextColumn Width="105"
+                                                   Header="逻辑大小"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding LogicalSize}" />
+                                <DataGridTextColumn Width="105"
+                                                   Header="实际占用"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding AllocatedSize}" />
+                                <DataGridTextColumn Width="130"
+                                                   Header="修改时间"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding LastWriteTime, StringFormat={}{0:yyyy-MM-dd HH:mm}}" />
+                                <DataGridTextColumn Width="130"
+                                                   Header="访问时间"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding LastAccessTime, StringFormat={}{0:yyyy-MM-dd HH:mm}}" />
+                                <DataGridTextColumn Width="150"
+                                                   Header="清理依据"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding RecommendationReason}" />
+                                <DataGridTextColumn Width="*"
+                                                   Header="完整路径"
+                                                   IsReadOnly="True"
+                                                   Binding="{Binding FullPath}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+
+                        <Grid Grid.Row="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock x:Name="CodexSmartSummaryTextBlock"
+                                           FontWeight="SemiBold"
+                                           Text="扫描 Codex 根目录后，查看可清理候选。" />
+                            <TextBlock Margin="0,5,0,0"
+                                        FontSize="12"
+                                        Foreground="{StaticResource MutedBrush}"
+                                        Text="建议先清理“高优先/中高优先”分值 55+ 文件，或直接用 80+ 做超高优先批量清理，再复核其余项目。" />
+                         </StackPanel>
+                        <Button Grid.Column="1"
+                                Style="{StaticResource SecondaryButton}"
+                                Click="OpenSelectedCodexSmartItemButton_Click"
+                                Content="打开所选位置" />
+                        <Button Grid.Column="3"
+                                 Style="{StaticResource SecondaryButton}"
+                                 Click="CodexSmartSelectPriorityButton_Click"
+                                 Content="选中高优先(55+)" />
+                             <Button Grid.Column="5"
+                                 Style="{StaticResource SecondaryButton}"
+                                 Click="CodexSmartSelectDuplicateDeletableButton_Click"
+                                 Content="重复组保留最新，选其余" />
+                             <Button Grid.Column="7"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="CodexSmartSelectRebuildableButton_Click"
+                                    Content="选中可重建目录" />
+                             <Button Grid.Column="9"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="CodexSmartSelectVeryHighPriorityButton_Click"
+                                    Content="选中超高优先(80+)" />
+                             <Button x:Name="CodexSmartDeleteButton"
+                                 Grid.Column="11"
+                                 Style="{StaticResource PrimaryButton}"
+                                 IsEnabled="False"
+                                 Click="CodexSmartDeleteButton_Click"
+                                 Content="移入回收站" />
+                        </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="空间分析">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Border Padding="16"
+                            Background="White"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="9">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="80" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="分析位置" />
+                            <TextBox x:Name="AnalysisPathTextBox"
+                                     Grid.Column="1"
+                                     Margin="10,0,0,0"
+                                     Padding="9,6" />
+                            <Button Grid.Column="3"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="BrowseAnalysisButton_Click"
+                                    Content="选择目录" />
+                            <TextBlock Grid.Column="5"
+                                       VerticalAlignment="Center"
+                                       FontWeight="SemiBold"
+                                       Text="大文件阈值" />
+                            <TextBox x:Name="MinimumSizeTextBox"
+                                     Grid.Column="6"
+                                     Margin="8,0"
+                                     Padding="8,6"
+                                     Text="100"
+                                     TextAlignment="Center"
+                                     PreviewTextInput="NumericTextBox_PreviewTextInput" />
+                            <TextBlock Grid.Column="7"
+                                       VerticalAlignment="Center"
+                                       Text="MB" />
+                            <Button x:Name="AnalyzeButton"
+                                    Grid.Column="9"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Click="AnalyzeButton_Click"
+                                    Content="开始分析" />
+                        </Grid>
+                    </Border>
+
+                    <Border Grid.Row="2"
+                            Background="White"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="9">
+                        <controls:SpaceExplorer x:Name="AnalysisExplorer" Margin="1" />
+                    </Border>
+
+                    <WrapPanel Grid.Row="1" Margin="0,8,0,12" VerticalAlignment="Center">
+                        <TextBlock Text="引擎 2.0" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <ComboBox x:Name="EngineModeBox" SelectedIndex="0" Width="160" Margin="0,0,12,0">
+                            <ComboBoxItem Content="自动：SSD / 机械硬盘" />
+                            <ComboBoxItem Content="强制顺序扫描" />
+                            <ComboBoxItem Content="受控并行（最多 4 路）" />
+                        </ComboBox>
+                        <CheckBox x:Name="IndexHashCheckBox" Content="保存重复候选指纹" VerticalAlignment="Center" Margin="0,0,12,0" ToolTip="完整模式下对同大小候选计算 SHA-256；会增加首次扫描耗时，后续复用。指纹不直接用于自动删除。" />
+                        <Button x:Name="SpacePauseButton" Content="暂停" IsEnabled="False" Click="SpacePause_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" />
+                        <Button x:Name="SpaceStopButton" Content="停止并保留" IsEnabled="False" Click="CancelButton_Click" Style="{StaticResource SecondaryButton}" Margin="0,0,8,0" />
+                        <Button Content="快照 / 恢复 ▾" Click="SpaceSnapshots_Click" Style="{StaticResource SecondaryButton}" />
+                    </WrapPanel>
+
+                    <Grid Grid.Row="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="AnalysisSummaryTextBlock"
+                                   VerticalAlignment="Center"
+                                   FontWeight="SemiBold"
+                                   Text="选择磁盘或目录后开始分析。" />
+                        <Button Grid.Column="1"
+                                Style="{StaticResource SecondaryButton}"
+                                Click="OpenSelectedAnalysisItemButton_Click"
+                                Content="打开所选位置" />
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="重复文件中心">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Border Padding="16" Background="White"
+                            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="9">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="12" /><ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="18" /><ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="80" /><ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="18" /><ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" Text="扫描位置" />
+                            <TextBox x:Name="DuplicatePathTextBox" Grid.Column="1" Margin="10,0,0,0" Padding="9,6" />
+                            <Button Grid.Column="3" Style="{StaticResource SecondaryButton}"
+                                    Click="BrowseDuplicateButton_Click" Content="选择目录" />
+                            <TextBlock Grid.Column="5" VerticalAlignment="Center" FontWeight="SemiBold" Text="忽略小于" />
+                            <TextBox x:Name="DuplicateMinimumTextBox" Grid.Column="6" Margin="8,0" Padding="8,6"
+                                     Text="10" TextAlignment="Center" PreviewTextInput="NumericTextBox_PreviewTextInput" />
+                            <TextBlock Grid.Column="7" VerticalAlignment="Center" Text="MB" />
+                            <Button x:Name="DuplicateScanButton" Grid.Column="9" Style="{StaticResource PrimaryButton}"
+                                    Click="DuplicateScanButton_Click" Content="查找重复文件" />
+                        </Grid>
+                    </Border>
+                    <controls:DuplicateCenter x:Name="DuplicateCenterView" Grid.Row="2" />
+                    <Grid Grid.Row="4">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="10" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="10" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock x:Name="DuplicateSummaryTextBlock" FontWeight="SemiBold"
+                                       TextWrapping="Wrap" Text="选择目录后查找内容完全相同的文件。" />
+                                <TextBlock Margin="0,5,0,0" Foreground="{StaticResource MutedBrush}" FontSize="12"
+                                       TextWrapping="Wrap" Text="原件目录受保护；操作前重验双方完整哈希。回收站尚未释放空间；硬链接共享修改。" />
+                            </StackPanel>
+                        <Button Grid.Column="1" Style="{StaticResource SecondaryButton}"
+                                Click="OpenSelectedDuplicateButton_Click" Content="打开所选位置" />
+                        <Button x:Name="DeleteDuplicatesButton" Grid.Column="3" Style="{StaticResource PrimaryButton}"
+                                IsEnabled="False" Click="DeleteDuplicatesButton_Click" Content="移入回收站" />
+                        <Button x:Name="HardLinkDuplicatesButton" Grid.Column="5" Style="{StaticResource SecondaryButton}" IsEnabled="False" Click="HardLinkDuplicatesButton_Click" Content="替换为硬链接…" />
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Docker / WSL">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" /><RowDefinition Height="14" />
+                        <RowDefinition Height="*" /><RowDefinition Height="12" /><RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Border Padding="16" Background="White" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="9">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="10" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="容器与 Linux 虚拟磁盘" />
+                                <TextBlock Margin="0,5,0,0" Foreground="{StaticResource MutedBrush}" FontSize="12"
+                                           Text="读取 Docker 可回收空间、Docker VHDX 和各 WSL 分发版的宿主机实际占用。" />
+                            </StackPanel>
+                            <Button x:Name="ExternalAnalyzeButton" Grid.Column="1" Style="{StaticResource SecondaryButton}"
+                                    Click="ExternalAnalyzeButton_Click" Content="重新检测" />
+                            <Button x:Name="DockerPruneButton" Grid.Column="3" Style="{StaticResource PrimaryButton}"
+                                    IsEnabled="False" Click="DockerPruneButton_Click" Content="安全清理 Docker" />
+                        </Grid>
+                    </Border>
+                    <Border Grid.Row="2" Background="White" BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="9">
+                        <DataGrid x:Name="ExternalStorageGrid" Margin="1" AutoGenerateColumns="False"
+                                  CanUserAddRows="False" CanUserDeleteRows="False" HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal" BorderThickness="0"
+                                  EnableRowVirtualization="True"
+                                  EnableColumnVirtualization="True"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="True"
+                                  ItemsSource="{Binding ExternalStorageItems}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Width="100" Header="来源" IsReadOnly="True" Binding="{Binding Source}" />
+                                <DataGridTextColumn Width="150" Header="项目" IsReadOnly="True" Binding="{Binding Name}" />
+                                <DataGridTextColumn Width="105" Header="逻辑大小" IsReadOnly="True" Binding="{Binding LogicalSize}" />
+                                <DataGridTextColumn Width="105" Header="实际占用" IsReadOnly="True" Binding="{Binding AllocatedSize}" />
+                                <DataGridTextColumn Width="125" Header="可回收" IsReadOnly="True" Binding="{Binding ReclaimableSize}" />
+                                <DataGridTextColumn Width="190" Header="状态" IsReadOnly="True" Binding="{Binding Status}" />
+                                <DataGridTextColumn Width="*" Header="位置或详情" IsReadOnly="True" Binding="{Binding PathOrDetail}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                    <Grid Grid.Row="4">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock x:Name="ExternalSummaryTextBlock" FontWeight="SemiBold"
+                                       Text="点击“重新检测”查看 Docker 与 WSL 占用。" />
+                            <TextBlock Margin="0,5,0,0" Foreground="{StaticResource MutedBrush}" FontSize="12"
+                                       Text="Docker 安全清理不会删除卷；WSL 页仅分析 VHDX，不直接修改 Linux 文件系统。" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Style="{StaticResource SecondaryButton}"
+                                Click="OpenSelectedExternalItemButton_Click" Content="打开所选位置" />
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem x:Name="HistoryTabItem" Header="清理历史">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="14" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Padding="16"
+                            Background="White"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="9">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="10" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock FontSize="16" FontWeight="SemiBold" Text="清理与模拟记录" />
+                                <TextBlock x:Name="HistorySummaryTextBlock"
+                                           Margin="0,5,0,0"
+                                           Foreground="{StaticResource MutedBrush}"
+                                           Text="尚未读取历史记录。" />
+                            </StackPanel>
+                            <Button Grid.Column="1"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="RefreshHistoryButton_Click"
+                                    Content="刷新" />
+                            <Button Grid.Column="3"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="OpenRawLogButton_Click"
+                                    Content="打开原始日志" />
+                        </Grid>
+                    </Border>
+                    <Border Grid.Row="2"
+                            Background="White"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="9">
+                        <DataGrid x:Name="HistoryGrid"
+                                  Margin="1"
+                                  AutoGenerateColumns="False"
+                                  CanUserAddRows="False"
+                                  CanUserDeleteRows="False"
+                                  IsReadOnly="True"
+                                  EnableRowVirtualization="True"
+                                  EnableColumnVirtualization="True"
+                                  VirtualizingPanel.IsVirtualizing="True"
+                                  VirtualizingPanel.VirtualizationMode="Recycling"
+                                  ScrollViewer.CanContentScroll="True"
+                                  ItemsSource="{Binding HistoryItems}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Width="170" Header="时间"
+                                                    Binding="{Binding Timestamp, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}" />
+                                <DataGridTextColumn Width="150" Header="操作" Binding="{Binding Operation}" />
+                                <DataGridTextColumn Width="100" Header="项目数" Binding="{Binding ItemCount}" />
+                                <DataGridTextColumn Width="130" Header="释放空间" Binding="{Binding ReclaimedSize}" />
+                                <DataGridTextColumn Width="100" Header="失败数" Binding="{Binding FailureCount}" />
+                                <DataGridTextColumn Width="130" Header="结果" Binding="{Binding Status}" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Border>
+                </Grid>
+            </TabItem>
+            <TabItem Header="相似媒体">
+                <controls:MediaCenter x:Name="MediaCenterView" />
+            </TabItem>
+            <TabItem Header="开发环境">
+                <controls:DevelopmentCenter x:Name="DevelopmentCenterView" />
+            </TabItem>
+            <TabItem Header="软件占用">
+                <controls:SoftwareCenter x:Name="SoftwareCenterView" />
+            </TabItem>
+        </TabControl>
+
+        <Border Grid.Row="2"
+                Margin="0,4,0,0"
+                Padding="14"
+                Background="{StaticResource CardBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="9">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="8" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Row="0"
+                           VerticalAlignment="Center"
+                           FontWeight="SemiBold"
+                           Text="扫描范围白名单" />
+                <TextBox x:Name="ScanScopeWhitelistTextBox"
+                         Grid.Row="0"
+                         Grid.Column="1"
+                         Height="56"
+                         AcceptsReturn="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         VerticalContentAlignment="Top"
+                         ToolTip="留空则扫描当前页面填写的路径；填写后只扫描这些目录（多个目录请用换行或分号分隔）" />
+                <Button Grid.Row="0"
+                        Grid.Column="3"
+                        Style="{StaticResource SecondaryButton}"
+                        Click="AddScanScopeWhitelistButton_Click"
+                        Content="添加目录" />
+                <Button Grid.Row="0"
+                        Grid.Column="5"
+                        Style="{StaticResource SecondaryButton}"
+                        Click="ClearScanScopeWhitelistButton_Click"
+                        Content="清空白名单" />
+                <TextBlock Grid.Row="2"
+                           Grid.ColumnSpan="6"
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="12"
+                           Text="仅用于本次扫描范围控制；会话级清理排除仍会独立生效。"
+                           TextWrapping="Wrap" />
+            </Grid>
+        </Border>
+
+        <Border x:Name="BusyOverlay"
+                Grid.RowSpan="5"
+                Visibility="Collapsed"
+                Background="#B8FFFFFF"
+                CornerRadius="10">
+            <StackPanel HorizontalAlignment="Center"
+                        VerticalAlignment="Center">
+                <ProgressBar Width="300"
+                             Height="7"
+                             IsIndeterminate="True" />
+                <TextBlock x:Name="BusyTextBlock"
+                           Margin="0,15,0,0"
+                           HorizontalAlignment="Center"
+                           FontSize="15"
+                           FontWeight="SemiBold"
+                           Text="正在处理…" />
+                <TextBlock Margin="0,6,0,0"
+                           HorizontalAlignment="Center"
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="12"
+                           Text="大目录扫描可能需要一些时间，可以随时取消。" />
+                <TextBlock x:Name="BusyDetailTextBlock"
+                           Width="720"
+                           Margin="0,5,0,0"
+                           HorizontalAlignment="Center"
+                           Foreground="{StaticResource MutedBrush}"
+                           FontSize="12"
+                           TextAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <Button Margin="0,16,0,0"
+                        Style="{StaticResource SecondaryButton}"
+                        Click="CancelButton_Click"
+                        Content="取消当前操作" />
+                <Button x:Name="BusyPauseButton" Margin="0,8,0,0" Visibility="Collapsed" Style="{StaticResource SecondaryButton}" Click="SpacePause_Click" Content="暂停并查看部分结果" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</Window>

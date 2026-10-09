@@ -1,0 +1,90 @@
+<UserControl x:Class="ChatGPTCleanupTool.Controls.SoftwareCenter"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource PageBrush}" FontFamily="Microsoft YaHei" FontSize="13" FontWeight="Normal">
+    <UserControl.Resources>
+        <Style x:Key="SoftwareButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+            <Setter Property="Padding" Value="10,5"/><Setter Property="MinHeight" Value="30"/><Setter Property="Margin" Value="0,0,8,0"/>
+        </Style>
+    </UserControl.Resources>
+    <Grid Margin="10">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel>
+            <TextBlock Text="软件占用与卸载残留" FontSize="20" FontWeight="SemiBold"/>
+            <TextBlock Text="默认只扫描和提示；残留不自动删除。卸载前必须建立并确认新还原点，个人数据请另外备份。" Foreground="{StaticResource MutedBrush}" Margin="0,3,0,8" TextWrapping="Wrap"/>
+        </StackPanel>
+        <Border Grid.Row="1" Padding="12" CornerRadius="8" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="扫描软件" Style="{StaticResource SoftwareButton}" Click="Scan_Click"/>
+                <WrapPanel VerticalAlignment="Center">
+                    <CheckBox x:Name="StoreBox" Content="当前用户商店应用" IsChecked="True" Margin="0,0,16,0"/>
+                    <CheckBox x:Name="GameBox" Content="Steam / Epic 内容" IsChecked="True" Margin="0,0,16,0"/>
+                    <CheckBox x:Name="ResidueBox" Content="疑似残留与未登记目录" IsChecked="True" Margin="0,0,16,0"/>
+                    <CheckBox x:Name="MeasureBox" Content="实际测量安装目录（较慢）" Margin="0,0,16,0"/>
+                </WrapPanel>
+            </DockPanel>
+        </Border>
+        <Grid Grid.Row="2" Margin="0,9,0,8">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock x:Name="Summary" Text="尚未扫描 · 默认按登记/平台报告大小排序，不把估算当实际占用" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                <TextBlock x:Name="SelectionText" Margin="0,3,0,0" FontSize="11" Foreground="{StaticResource MutedBrush}" Text="所有结果默认不选择；疑似残留永远只提示。" TextTrimming="CharacterEllipsis"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <ComboBox x:Name="FilterBox" SelectedIndex="0" Width="155" SelectionChanged="Filter_Changed" Margin="0,0,8,0">
+                    <ComboBoxItem Content="全部"/><ComboBoxItem Content="桌面软件"/><ComboBoxItem Content="商店应用"/><ComboBoxItem Content="游戏平台内容"/><ComboBoxItem Content="缺少卸载入口 / 孤立"/><ComboBoxItem Content="疑似卸载残留"/><ComboBoxItem Content="受保护项目"/>
+                </ComboBox>
+                <Button Style="{StaticResource SoftwareButton}" Content="按占用排序" Click="Sort_Click"/>
+                <Button Style="{StaticResource SoftwareButton}" Content="清空选择" Click="Clear_Click"/>
+            </StackPanel>
+        </Grid>
+        <TabControl Grid.Row="3">
+            <TabItem Header="软件与占用">
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="64"/></Grid.RowDefinitions>
+                    <DataGrid x:Name="ResultGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionMode="Extended"
+                              EnableRowVirtualization="True" EnableColumnVirtualization="True" SelectionChanged="Selection_Changed" Margin="0,7,0,5">
+                        <DataGrid.ContextMenu><ContextMenu><MenuItem Header="打开所在位置" Click="Open_Click"/><MenuItem Header="复制路径 / 注册表位置" Click="Copy_Click"/><MenuItem Header="打开 Windows 已安装应用" Click="Settings_Click"/></ContextMenu></DataGrid.ContextMenu>
+                        <DataGrid.Columns>
+                            <DataGridCheckBoxColumn Header="选择" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="48"/>
+                            <DataGridTextColumn Header="软件 / 项目" Binding="{Binding Name}" IsReadOnly="True" Width="250"/>
+                            <DataGridTextColumn Header="类型" Binding="{Binding KindText}" IsReadOnly="True" Width="110"/>
+                            <DataGridTextColumn Header="状态" Binding="{Binding Status}" IsReadOnly="True" Width="220"/>
+                            <DataGridTextColumn Header="逻辑 / 登记大小" Binding="{Binding SizeText}" IsReadOnly="True" Width="155"/>
+                            <DataGridTextColumn Header="实际占用" Binding="{Binding AllocatedText}" IsReadOnly="True" Width="110"/>
+                            <DataGridTextColumn Header="大小依据" Binding="{Binding SizeBasis}" IsReadOnly="True" Width="280"/>
+                            <DataGridTextColumn Header="发布者" Binding="{Binding Publisher}" IsReadOnly="True" Width="230"/>
+                            <DataGridTextColumn Header="版本" Binding="{Binding Version}" IsReadOnly="True" Width="130"/>
+                            <DataGridTextColumn Header="文件数" Binding="{Binding FileCount}" IsReadOnly="True" Width="80"/>
+                            <DataGridTextColumn Header="安装 / 残留位置" Binding="{Binding FullPath}" IsReadOnly="True" Width="400"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <Border Grid.Row="1" Padding="8" CornerRadius="6" Background="{StaticResource CardBrush}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"><TextBlock x:Name="EvidenceText" Text="选择一项查看来源、卸载入口和保留理由。" TextWrapping="Wrap"/></ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+            <TabItem Header="扫描提醒"><TextBox x:Name="WarningText" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" BorderThickness="0" Margin="12"/></TabItem>
+            <TabItem Header="卸载与还原点记录">
+                <DataGrid x:Name="RecordGrid" AutoGenerateColumns="False" IsReadOnly="True" CanUserAddRows="False" EnableRowVirtualization="True" Margin="0,7,0,0">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="时间（UTC）" Binding="{Binding TimeUtc, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="155"/>
+                        <DataGridTextColumn Header="项目" Binding="{Binding Name}" Width="200"/>
+                        <DataGridTextColumn Header="操作" Binding="{Binding Action}" Width="130"/>
+                        <DataGridTextColumn Header="结果" Binding="{Binding Result}" Width="210"/>
+                        <DataGridTextColumn Header="还原点" Binding="{Binding RestorePoint}" Width="80"/>
+                        <DataGridTextColumn Header="说明" Binding="{Binding Reason}" Width="*"/>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
+        <WrapPanel Grid.Row="4" Margin="0,10,0,0">
+            <Button Style="{StaticResource SoftwareButton}" Content="模拟卸载检查" Click="DryRun_Click"/>
+            <Button Style="{StaticResource SoftwareButton}" Content="建立还原点并批量卸载" Click="Uninstall_Click"/>
+            <Button Style="{StaticResource SoftwareButton}" Content="仅建立还原点" Click="Restore_Click"/>
+            <Button Style="{StaticResource SoftwareButton}" Content="Windows 已安装应用" Click="Settings_Click"/>
+            <Button Style="{StaticResource SoftwareButton}" Content="打开位置" Click="Open_Click"/>
+            <Button Style="{StaticResource SoftwareButton}" Content="刷新记录" Click="Records_Click"/>
+        </WrapPanel>
+    </Grid>
+</UserControl>
