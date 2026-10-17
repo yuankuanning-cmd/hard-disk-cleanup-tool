@@ -63,7 +63,7 @@
                         </DataGrid.ContextMenu>
                         <DataGrid.Columns>
                             <DataGridCheckBoxColumn Header="选择" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="48"/>
-                            <DataGridTextColumn Header="分类" Binding="{Binding SafetyText}" Width="110" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="分类" Binding="{Binding SafetyText}" ElementStyle="{StaticResource StatusText}" Width="110" IsReadOnly="True"/>
                             <DataGridTextColumn Header="类型" Binding="{Binding KindText}" Width="110" IsReadOnly="True"/>
                             <DataGridTextColumn Header="名称" Binding="{Binding Name}" Width="190" IsReadOnly="True"/>
                             <DataGridTextColumn Header="逻辑大小" Binding="{Binding SizeText}" Width="100" IsReadOnly="True"/>

@@ -3,15 +3,15 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ChatGPTCleanupTool.Controls"
         Title="磁盘空间助手"
-        Width="1320"
-        Height="860"
-        MinWidth="1080"
+        Width="1440"
+        Height="920"
+        MinWidth="1180"
         MinHeight="720"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource PageBrush}"
         Loaded="Window_Loaded"
         Closing="Window_Closing">
-    <Grid Margin="24">
+    <Grid Margin="18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="12" />
@@ -26,13 +26,11 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel>
-                <TextBlock FontSize="28"
-                           FontWeight="Bold"
-                           Text="磁盘空间助手" />
+                <StackPanel Orientation="Horizontal"><TextBlock FontSize="23" FontWeight="SemiBold" Text="磁盘空间助手"/><Border Background="{StaticResource AccentSoftBrush}" CornerRadius="5" Padding="7,3" Margin="10,0,0,0" VerticalAlignment="Center"><TextBlock Text="3.0" FontSize="11" Foreground="{StaticResource AccentBrush}"/></Border></StackPanel>
                 <TextBlock Margin="0,6,0,0"
                            Foreground="{StaticResource MutedBrush}"
-                           FontSize="14"
-                           Text="先分析，再决定；默认只选择可重新生成的低风险文件。" />
+                           FontSize="12"
+                           Text="看清占用 · 核对归属 · 由你决定清理" />
             </StackPanel>
             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                 <WrapPanel HorizontalAlignment="Right">
@@ -81,9 +79,10 @@
 
         <TabControl Grid.Row="4"
                     x:Name="MainTabControl"
+                    Style="{StaticResource NavigationShell}"
                     FontFamily="Microsoft YaHei UI"
-                    FontSize="14">
-            <TabItem Header="快速清理">
+                    FontSize="13">
+            <TabItem Header="快速清理" Tag="&#xE74D;">
                 <Grid Margin="16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -211,6 +210,7 @@
                                                         Binding="{Binding Name}" />
                                     <DataGridTextColumn Width="65"
                                                         Header="风险"
+                                                        ElementStyle="{StaticResource StatusText}"
                                                         IsReadOnly="True"
                                                         Binding="{Binding Risk}" />
                                     <DataGridTextColumn Width="85"
@@ -310,7 +310,7 @@
                         <Button x:Name="CleanupButton"
                                 Grid.Column="1"
                                 MinWidth="160"
-                                Style="{StaticResource PrimaryButton}"
+                                Style="{StaticResource DangerButton}"
                                 IsEnabled="False"
                                 Click="CleanupButton_Click"
                                 Content="清理已选项目" />
@@ -318,7 +318,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Codex 智能建议">
+            <TabItem Header="Codex 智能建议" Tag="&#xE756;">
                 <Grid Margin="16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -347,11 +347,11 @@
                                 <ColumnDefinition Width="18" />
                                 <ColumnDefinition Width="Auto" />
                                 <ColumnDefinition Width="78" />
-                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="24" />
+                                <ColumnDefinition Width="12" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="18" />
                                 <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="24" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <TextBlock VerticalAlignment="Center"
@@ -409,11 +409,11 @@
                                     Content="扫描 Codex 文件" />
                             <StackPanel Grid.Row="2" Grid.ColumnSpan="13">
                                 <TextBlock FontWeight="SemiBold"
-                                           Text="说明：只显示高置信度可清理候选，排序按推荐分值（越高越建议清理）。" />
+                                           Text="评分仅用于排序，不代表文件已经无用；归属不明的产物请到“开发环境”核对任务和 Git 状态。" />
                                 <TextBlock Margin="0,4,0,0"
                                            Foreground="{StaticResource MutedBrush}"
                                            FontSize="12"
-                                           Text="评分依据：未访问时长、文件目录类型、扩展名和文件体积。可根据提示在列表里逐项确认后再删除。" />
+                                           Text="结合任务归属、可重建性和保护规则判断；不要仅凭文件年龄或分数决定删除。" />
                                 <CheckBox x:Name="CodexSmartDetectDuplicatesCheckBox"
                                           Margin="0,10,0,0"
                                           Content="扫描后识别重复文件（按哈希，耗时更长）"
@@ -553,7 +553,7 @@
                                     Content="选中超高优先(80+)" />
                              <Button x:Name="CodexSmartDeleteButton"
                                  Grid.Column="11"
-                                 Style="{StaticResource PrimaryButton}"
+                                 Style="{StaticResource DangerButton}"
                                  IsEnabled="False"
                                  Click="CodexSmartDeleteButton_Click"
                                  Content="移入回收站" />
@@ -561,7 +561,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="空间分析">
+            <TabItem Header="空间分析" Tag="&#xE9D9;">
                 <Grid Margin="16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -660,7 +660,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="重复文件中心">
+            <TabItem Header="重复文件中心" Tag="&#xE8C8;">
                 <Grid Margin="16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -703,14 +703,14 @@
                             </StackPanel>
                         <Button Grid.Column="1" Style="{StaticResource SecondaryButton}"
                                 Click="OpenSelectedDuplicateButton_Click" Content="打开所选位置" />
-                        <Button x:Name="DeleteDuplicatesButton" Grid.Column="3" Style="{StaticResource PrimaryButton}"
+                        <Button x:Name="DeleteDuplicatesButton" Grid.Column="3" Style="{StaticResource DangerButton}"
                                 IsEnabled="False" Click="DeleteDuplicatesButton_Click" Content="移入回收站" />
                         <Button x:Name="HardLinkDuplicatesButton" Grid.Column="5" Style="{StaticResource SecondaryButton}" IsEnabled="False" Click="HardLinkDuplicatesButton_Click" Content="替换为硬链接…" />
                     </Grid>
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Docker / WSL">
+            <TabItem Header="Docker / WSL" Tag="&#xE7B8;">
                 <Grid Margin="16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" /><RowDefinition Height="14" />
@@ -728,7 +728,7 @@
                             </StackPanel>
                             <Button x:Name="ExternalAnalyzeButton" Grid.Column="1" Style="{StaticResource SecondaryButton}"
                                     Click="ExternalAnalyzeButton_Click" Content="重新检测" />
-                            <Button x:Name="DockerPruneButton" Grid.Column="3" Style="{StaticResource PrimaryButton}"
+                            <Button x:Name="DockerPruneButton" Grid.Column="3" Style="{StaticResource DangerButton}"
                                     IsEnabled="False" Click="DockerPruneButton_Click" Content="安全清理 Docker" />
                         </Grid>
                     </Border>
@@ -768,7 +768,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem x:Name="HistoryTabItem" Header="清理历史">
+            <TabItem x:Name="HistoryTabItem" Header="清理历史" Tag="&#xE81C;">
                 <Grid Margin="16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -834,18 +834,22 @@
                     </Border>
                 </Grid>
             </TabItem>
-            <TabItem Header="相似媒体">
+            <TabItem Header="相似媒体" Tag="&#xEB9F;">
                 <controls:MediaCenter x:Name="MediaCenterView" />
             </TabItem>
-            <TabItem Header="开发环境">
+            <TabItem Header="开发环境" Tag="&#xE943;">
                 <controls:DevelopmentCenter x:Name="DevelopmentCenterView" />
             </TabItem>
-            <TabItem Header="软件占用">
+            <TabItem Header="软件占用" Tag="&#xE71D;">
                 <controls:SoftwareCenter x:Name="SoftwareCenterView" />
             </TabItem>
+            <TabItem Header="NPS 工程" Tag="&#xE8B7;">
+                <controls:NpsCenter x:Name="NpsCenterView" />
+            </TabItem>
+            <TabItem Header="磁盘概览" Tag="&#xE80F;"><controls:OverviewCenter x:Name="OverviewCenterView"/></TabItem>
         </TabControl>
 
-        <Border Grid.Row="2"
+        <Expander Grid.Row="2" x:Name="ScopeExpander" Header="扫描范围白名单（可选，点击展开设置）" IsExpanded="False" FontSize="11" Foreground="{StaticResource MutedBrush}"><Border
                 Margin="0,4,0,0"
                 Padding="14"
                 Background="{StaticResource CardBrush}"
@@ -871,6 +875,7 @@
                            FontWeight="SemiBold"
                            Text="扫描范围白名单" />
                 <TextBox x:Name="ScanScopeWhitelistTextBox"
+                         TextChanged="ScanScopeChanged"
                          Grid.Row="0"
                          Grid.Column="1"
                          Height="56"
@@ -898,6 +903,7 @@
             </Grid>
         </Border>
 
+        </Expander>
         <Border x:Name="BusyOverlay"
                 Grid.RowSpan="5"
                 Visibility="Collapsed"

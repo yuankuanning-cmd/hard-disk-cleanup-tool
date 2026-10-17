@@ -213,6 +213,8 @@ internal static class SpaceTreeTests
                 ((SoftwareCenter)main.FindName("SoftwareCenterView")).SetResult(SoftwareTests.UiResult);
                 content.UpdateLayout(); Render(content, Path.Combine(output, "software-center-main-preview.png"));
                 ContextMenuTests.RunUi(main, output);
+                NpsProjectTests.RunUi(main, output);
+                OverviewTests.RunUi(main, output);
                 app.Shutdown(); completion.SetResult();
             }
             catch (Exception ex) { completion.SetException(ex); }

@@ -1,8 +1,54 @@
 # 磁盘空间助手开发交接
 
-更新时间：2026-10-08
+更新时间：2026-10-17
 
-## 最新增量：全页右键菜单（v2.5.0）
+## 最新增量：彩色工作台、容量概览与常用目录（v3.0.0）
+
+- `Themes/ModernTheme.xaml`由App合并：统一颜色资源、圆角控件、表格和状态色标；`NavigationShell/NavigationItem`提供深蓝侧栏。主导航旧0..9索引保持不变，新概览为10，`NavigationPanel`按ZIndex将概览视觉置顶；不要为导航排序改动旧索引依赖。所有页保留原业务入口。
+- `Controls/VisualPrimitives.cs`包含轻量原生`DiskGauge`和冻结状态画刷转换器。无第三方UI/图标依赖，无每行动画或阴影；数据表行列虚拟化、正常字重。状态文字与颜色同时出现，不只靠颜色传递风险。
+- `Models/StorageOverview.cs`、`Services/StorageOverviewService.cs`只在后台读取本地固定盘容量，不枚举文件、不查网络/移动盘、不运行清理命令；80%/90%提示仅为空间压力，不是磁盘健康。`Controls/OverviewCenter.xaml(.cs)`展示容量卡、环图、快捷入口、最多12个目录收藏和已有快速清理候选合计，未扫描显示“未扫描”。候选值不是可释放量。
+- `MainWindow.Overview.cs`集成刷新、导航、收藏持久化与CSV。收藏只存归一化本地绝对路径、忽略大小写去重，加载不探测存在性；明确点击分析才调用`AnalyzeSpaceAsync(root)`，与已有子目录重扫一致，指定路径不套用全局白名单但保留原件/排除。大文件入口只设1024MiB阈值并跳页，不自动扫盘。
+- `AppSettings.InterfaceVersion/FavoriteScanPaths`兼容旧偏好；3.0首次打开概览，后续保持选择。`Window_Loaded`移除自动快速扫描，异步读取容量；关闭取消读取，不等待无界卷查询。未加载的测试窗口关闭不写用户设置，书签测试禁用通知并恢复原值，避免夹具污染真实设置。
+- `Controls/GridCheckBehavior.cs`仅处理可编辑的`DataGridCheckBoxColumn`单击：走BeginEdit与原绑定，不枚举源、改删除资格或绕过IsEnabled/IsReadOnly。NPS模板内复选框仍走原有实现；测试使用直接路由事件时在grid上RaiseEvent并把Source设为cell，模拟WPF的直接预览事件转发。
+- 顶栏白名单折叠，TextChanged同步显示启用范围数；修正Codex筛选栏固定窄列导致文字裁切、TextBox模板重复Padding导致30px路径文本裁切，保留全局模拟与保护规则。`ResultContextMenu`增添容量/收藏对象映射，现11页/23个对象区域；收藏导出路径列表，概览导出卷容量。
+- 新测试`OverviewTests`覆盖容量/压力、取消、收藏与安全偏好持久化、导航索引、单击/禁用/只读、冻结状态色、11页呈现与菜单。`--overview-only`只运行该组；完整`--million --test-recycle`包含新组。预览容量为夹具，截图带示例说明，不作本机空间报告。
+- 新增打包诊断`--verify-overview-engine`，只检控件、主题资源与模拟容量，不扫描用户盘。版本3.0.0.0，单文件同名更新`D:\SoftWare\DiskCleanupAssistant.exe`，保留其他软件与用户数据；实际测试和发布哈希见`RELEASE-3.0-VERIFICATION.md`。
+
+## 历史增量：NPS多依据识别与整工程回收（v2.8.0）
+
+- 使用者再次明确：回收整个模型工程，不能仅以npsdata为依据。保留单表自动大小与直接勾选，取消孤立模型的单文件删除资格，主列表只展示Recognized完整工程（恢复快照另列）。候选与模型线索默认隐藏，分类可查看，只读。
+- `NpsProjectRecognizer.InspectRoot`：本层有效XML清单+model目录/至少两种配套目录；无清单则model+至少两种配套目录+已核对模型schema/NPS专用脚本标记。仅文件后缀、单清单、目录名或备份名不足。多个清单/损坏/权限异常失败关闭。
+- `ReadStructure`随model/script/loadflow/fpga_bin目录线索触发，在现有全盘遍历期间加入目录标志，不另开全盘遍历。候选目录去重；model数据库最多核对本层16项，script最多查看64个目录项、读取8个文本文件的前16,384字符，支持py/json/xml/txt，关键词集在源码明确。读取不执行脚本，不跟随reparse/云占位；有XML已验证时不额外读脚本/模型库。
+- SQLite原markers表model值0=清单、1=模型线索、2=目录结构，record增加可选Structure字段，保持旧清单JSON可载入。目录与文件标志归并后按最近工程根分配ModelFiles，目录项数而非npsdata文件数决定展示行。追加枚举StructuredProject，不改变旧枚举数值；识别描述写入Evidence及CSV。
+- `NpsProjectService.MeasureAsync`仍先统计目录占用；孤立文件有大小但不可回收。工程必须新鲜InspectRoot.Confirmed，且记录清单与当前根本层清单一致；无清单工程不伪造ManifestHash。执行时再次检查组合证据+Git+快照。删除入口仅接受可信WholeProject，移除旧EnsureModelSafe单文件授权逻辑。
+- `DevelopmentManifest.HasNestedNpsProject`保留其他清单检测，并核对快照中的嵌套model/script目录是否构成另一个独立结构工程，防止父工程吞掉无清单子工程。系统/安装/用户根、排除/参考、Git、离线/链接、工具恢复快照保护不变。
+- 一次确认明确“完整文件夹内模型、脚本、结果、编译产物、备份等全部内容”，不输入文字、不加100项上限。文件夹外的共享资源不追删。全局模拟、STA强制回收、持久审计和取消保持。
+- `NpsProjectTests.MultiSourceAsync`新增无npsdata清单工程、最小清单工程、无清单无npsdata的脚本结构工程、schema+结构工程、多模型归并、完整大小、普通布局/共享下载目录误判、独立线索、无清单嵌套保护及识别依据变化。原生回收仅使用随机临时工程，验证整目录而非仅数据库；UI仍测单击、筛选、1201项勾选与菜单。
+- 本机原样例路径当前只剩`.simunps-mcp`，不能沿用10月13日21个普通/备份工程或3.3秒的数据。`--nps-sample`改为检查现存的有效清单，不要求旧HN目录存在。测试与发布哈希记录到`RELEASE-2.8-VERIFICATION.md`。版本2.8.0.0，仍单文件同名更新D:\SoftWare，不删除其他软件。
+
+## 历史增量：NPS单表直接勾选清理（v2.7.0，单文件删除已替换）
+
+- 使用者明确要求简化为“每项大小 → 勾选删除”。`NpsCenter`移除PlanGrid、测量按钮、双表计划；ProjectGrid首列为模板内交互CheckBox，可单击而无需进入DataGrid编辑模式。自动大小降序、全选当前筛选结果/取消全部、选中项数和大小汇总；一次普通Yes/No确认（默认No），删除不再要求输入文字。
+- `MainWindow.Nps.cs`把发现和全量大小统计作为一个后台操作；打开历史清单也自动更新大小，保存大小字段JsonInclude，不复用过期清理资格。取消保留已测大小，取消项有清楚文字且不可勾选。删除继续遵守全局模拟模式。
+- `NpsProjectItem.Cleanup`是仅运行时的绑定，不序列化删除计划。目录测量先于资格判断：恢复/嵌套/Git等受保护项也显示大小，不再虚假显示0 B；不完整大小标“部分”。独立模型采用ModelFile目标，仅回收单个npsdata，绝不推断父文件夹归属。未知模型格式仍明确标示，文件删除由用户选择，不再禁止所有独立模型。
+- `MeasureAsync`/`RecycleAsync`删除100项限制，快照单项目条目上限改为int.MaxValue；NPS菜单勾选、全选和删除允许超过通用1000行阈值。发现20k结果/100k标志/512深度上限不变。守卫按ProjectId字典查找，批量绑定用字典，勾选汇总仅更新一次，避免O(n²)。重新扫描或打开历史时替换旧快照，避免本地索引无限追加。
+- `DevelopmentManifest.Scan`可选NPS测量模式，SQLite逐项事务，遇访问失败保留已读大小并标不完整。Scan/Validate均采用深度有界枚举器栈，不堆积全部同层文件；原开发环境默认模式保持失败关闭，工作树的共享.git目录不纳入清理快照。NPS使用`GetFileStorageMetadata`的FILE_READ_ATTRIBUTES句柄读取分配/身份，不打开文件内容；扫描根只核对一次祖先，遍历按条目检查reparse，执行前仍完整核对祖先和身份；进度250ms节流。
+- 目录仍保留本层清单/标准结构、嵌套工程、Git、系统/安装/整个用户根、排除/参考、reparse/cloud、恢复快照保护；单文件不套用整个ProgramFiles目录限制，但仍禁止Windows/System/保护硬链接/数据库sidecar/恢复项。执行前自动Validate，STA强制回收，记录意图和结果，绝不永久删除或清空回收站。
+- NPS右键菜单直接勾选/取消、全选、模拟与删除，无手动测量入口；CSV增加删除范围和状态；统一菜单现覆盖10页/21个对象区域。测试包含121项真实临时文件大小+模拟、1201项UI批选和大选择菜单、实际呈现的CheckBox自动化Toggle和两向绑定、临时工程及单模型真实回收（同目录keep.txt保留）。未删除用户工程。
+- 版本2.7.0.0，仍同名替换 `D:\SoftWare\DiskCleanupAssistant.exe`，保留用户规则/设置/历史。最终验证、样例大小统计耗时和发布SHA256见 `RELEASE-2.7-VERIFICATION.md`。
+
+## 历史增量：NPS工程发现与整个旧工程回收（v2.6.0，旧流程已替换）
+
+- 使用者明确优先“回收已备份的整个旧工程”，不是自动清理编译产物。第10页 `Controls/NpsCenter.xaml(.cs)`、`MainWindow.Nps.cs`：全盘/指定范围、可移动盘只发现、分类隐藏恢复快照、工程搜索、选中测量、独立勾选计划、模拟、备份关闭NPS输入确认、持久记录/重开清单、CSV/设置/关闭等待。旧9页序号不变；统一菜单扩至10页/22个对象区域。
+- `NpsProjectRecognizer.cs`基于实际三份project.emtproj样例：XML Project/Version/ProjectConfig或LoadFlowConfig，禁DTD/XML外部解析、1MiB上限；npsdata头和model/block表只读核对。WAL/SHM/journal存在或WAL格式不打开SQLite，仅候选提示，防辅助文件写入。文件后缀/未知格式也保留疑似，不冒充所有NPS版本已验证。
+- `NpsProjectService.DiscoverAsync`目录枚举使用缓存文件属性，只为标志读取内容，不对整盘全部文件读分配/哈希；最多2路SSD多范围、HDD/未知顺序，BlockingCollection256单SQLite写者/128事务批次。DFS枚举器栈，不保存所有普通路径，包含隐藏目录，不跟随reparse/云离线/恢复项。回收站/卷管理/权限/512深度/100k标志/20k项目限制和取消均报告。可访问范围结束不等于不可访问路径也扫描成功；不宣称USN增量。
+- `NpsProjectCatalog.cs`SQLite FULL审计+WAL，匹配标志、最近结果、500条最近记录。根按清单所在目录，模型按最近上级工程归属；无归属模型作为单文件只读，绝不把其父目录当工程删除。备份名仅分类，`.simunps-mcp`恢复目录始终只读；默认隐藏可切换查看。
+- 完整测量/校验复用 `DevelopmentManifest`（新增Forget/HasOtherNpsManifest，不改旧Scan接口）：清单需本层、结构model+至少两种配套目录、逐文件身份/长度/时间/硬链接、完整性和嵌套检查。每根最新计划取代旧计划，原件/排除/系统/根/安装/整个用户目录/Git/链接/云/恢复目录拒绝。回收要求输入备份关闭确认、实时进程检测和清单SHA-256/结构/快照校验，串行STA强制回收、意图先记，不强杀、不清空回收站。UI勾选通知只在UI线程发出，后台仅改变资格标志。
+- 模型/脚本/结果是用户工程内容，年龄不授权删除，备份由用户自行建立；程序不能验证备份内容完整或所有改名NPS进程。快照元数据不是对整个工程每个文件做内容哈希，不承诺所有并发竞态都被消除；仍需保存并关闭工具。
+- `NpsProjectTests.cs`隔离格式/深层隐藏/范围重叠/备份/恢复/独立/未知/DTD/WAL/嵌套/Git/伪造外部清单/实时保护/修改新增/取消上限/持久化与真正临时工程回收。真实样例只读测试 `--nps-sample`索引放临时测试根，不读认证/不改样例；`--nps-only --test-recycle`专项；全量 `--million --test-recycle`含旧回归、十页菜单和NPS渲染。
+- 样例只读发现141目录：17普通、4备份、120恢复快照，9,045文件，约1.2秒、跳过0；没有给用户做工程回收。新诊断 `--verify-nps-engine`只检打包控件/SQLite，不扫描用户工程。版本2.6.0.0，发布同名替换D:\SoftWare，哈希见RELEASE-2.6-VERIFICATION.md。
+
+## 历史增量：全页右键菜单（v2.5.0）
 
 - `Controls/ResultContextMenu.cs`：结果对象显式映射，无反射遍历；所有者级指针命中、保留多选、空白处清空菜单目标、菜单键/Shift+F10、Ctrl+C与弹出菜单内复制、公共位置/属性/复制/详情。快照只读SelectedItems，1000行上限、20项详情、1MiB复制限制；不展开百万ItemsSource或计算哈希。忙碌/资格在点击时再检查，防打开后变忙的旧入口。系统属性调用Unicode SHObjectProperties，缺失路径点击时提示，不在菜单打开时探测大量磁盘。
 - `MainWindow.ContextMenus.cs`：9页页面背景及19个结果/列表/树图/审计区域绑定。每页刷新/导出；明确区分高亮行与勾选计划。清理/回收/链接/Git/卸载调用原有入口，不引入新的删除实现。记录导出实际记录而非分析列表；公式前缀进行转义。原件/排除同步、软件和开发资格更新。

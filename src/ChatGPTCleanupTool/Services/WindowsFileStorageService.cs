@@ -24,6 +24,14 @@ public static class WindowsFileStorageService
         return GetFileStorageInfo(stream.SafeFileHandle);
     }
 
+    // Size/identity do not require opening file contents. Avoid read-data access and antivirus content scans.
+    internal static FileStorageInfo GetFileStorageMetadata(string path)
+    {
+        using var handle = NativeVolume.CreateFile(path, 0x80, 7, IntPtr.Zero, 3, 0x00200000, IntPtr.Zero);
+        if (handle.IsInvalid) throw new Win32Exception(Marshal.GetLastPInvokeError());
+        return GetFileStorageInfo(handle);
+    }
+
     public static FileStorageInfo GetFileStorageInfo(SafeFileHandle handle)
     {
         if (!GetFileInformationByHandle(handle, out var info))

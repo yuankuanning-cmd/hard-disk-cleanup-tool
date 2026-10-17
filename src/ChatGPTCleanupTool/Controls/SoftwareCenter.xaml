@@ -49,7 +49,7 @@
                             <DataGridCheckBoxColumn Header="选择" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="48"/>
                             <DataGridTextColumn Header="软件 / 项目" Binding="{Binding Name}" IsReadOnly="True" Width="250"/>
                             <DataGridTextColumn Header="类型" Binding="{Binding KindText}" IsReadOnly="True" Width="110"/>
-                            <DataGridTextColumn Header="状态" Binding="{Binding Status}" IsReadOnly="True" Width="220"/>
+                            <DataGridTextColumn Header="状态" Binding="{Binding Status}" ElementStyle="{StaticResource StatusText}" IsReadOnly="True" Width="220"/>
                             <DataGridTextColumn Header="逻辑 / 登记大小" Binding="{Binding SizeText}" IsReadOnly="True" Width="155"/>
                             <DataGridTextColumn Header="实际占用" Binding="{Binding AllocatedText}" IsReadOnly="True" Width="110"/>
                             <DataGridTextColumn Header="大小依据" Binding="{Binding SizeBasis}" IsReadOnly="True" Width="280"/>

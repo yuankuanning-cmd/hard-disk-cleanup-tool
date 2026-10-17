@@ -26,6 +26,10 @@ public partial class MainWindow
         Attach((DataGrid)DevelopmentCenterView.FindName("RecordGrid"), "开发环境", true);
         Attach((DataGrid)SoftwareCenterView.FindName("ResultGrid"), "软件占用");
         Attach((DataGrid)SoftwareCenterView.FindName("RecordGrid"), "软件占用", true);
+        Attach((DataGrid)NpsCenterView.FindName("ProjectGrid"), "NPS 工程");
+        Attach((DataGrid)NpsCenterView.FindName("RecordGrid"), "NPS 工程", true);
+        Attach((ListBox)OverviewCenterView.FindName("DriveCards"), "磁盘概览");
+        Attach((ListBox)OverviewCenterView.FindName("FavoriteItems"), "目录收藏");
         AnalysisExplorer.MenuBlocked = () => _isBusy;
         AnalysisExplorer.IsMenuPathProtected = _exclusionService.Contains;
         AnalysisExplorer.ExportRequested = () => ExportCurrentResultsButton_Click(this, new RoutedEventArgs());
@@ -38,7 +42,7 @@ public partial class MainWindow
         var rows = menu.Rows; var current = menu.Current;
         var paths = rows.Select(r => r.Path).Where(ResultContextMenu.IsFilePath).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         menu.Separator();
-        if (!records && paths.Length > 0 && page is not "原件保护")
+        if (!records && paths.Length > 0 && page is not "原件保护" and not "磁盘概览" and not "目录收藏")
         {
             menu.Add("exclude", $"加入永久排除（{paths.Length}项）…", () => AddMenuExclusions(paths), changesState: true,
                 hint: "文件按路径保护；目录包含子项。不会删除文件，保护同步到其他清理页。");
@@ -48,6 +52,14 @@ public partial class MainWindow
         }
         switch (page)
         {
+            case "磁盘概览": case "目录收藏":
+                if (current?.Path is { Length: > 0 } overviewPath)
+                {
+                    menu.Add("analyze-overview", "分析此磁盘 / 目录的空间", async () => { if (_isBusy) return; MainTabControl.SelectedIndex = 2; AnalysisPathTextBox.Text = overviewPath; await AnalyzeSpaceAsync(overviewPath); }, changesState: true);
+                    if (page == "目录收藏") menu.Add("remove-bookmark", "移除目录收藏（不删除文件）", () => OverviewCenterView.RemoveFavorite(overviewPath), changesState: true);
+                    else menu.Add("pin-overview", "收藏为常用扫描目录", () => OverviewCenterView.AddFavorite(overviewPath), changesState: true);
+                }
+                break;
             case "快速清理":
                 PlanEntries<CleanupCategoryItem>(menu, c => c.FileCount > 0, (c, selected) => c.IsSelected = selected, "清理类别");
                 menu.Add("process-plan", "处理已勾选类别…", () => CleanupButton_Click(this, new()), changesState: true,
@@ -121,6 +133,18 @@ public partial class MainWindow
                 menu.Add("docker-prune", "安全清理 Docker 缓存（全局）…", () => DockerPruneButton_Click(this, new()), changesState: true,
                     available: () => _dockerRunning && DockerPruneButton.IsEnabled, hint: "不是删除右键项或WSL虚拟盘；仍显示原有全局Docker清理确认。");
                 break;
+            case "NPS 工程" when !records:
+                if (rows.Count > 0)
+                {
+                    menu.Add("check-rows", "勾选所选完整工程", () => NpsCenterView.SetHighlightedSelection(true), rows.Any(r => r.Item is NpsProjectItem { Cleanup.CanRecycle: true }), true, allowLargeSelection: true);
+                    menu.Add("uncheck-rows", "取消所选行勾选", () => NpsCenterView.SetHighlightedSelection(false), changesState: true, allowLargeSelection: true);
+                }
+                menu.Add("select-all-nps", "全选当前列表", NpsCenterView.SelectVisible, changesState: true, allowLargeSelection: true);
+                menu.Add("clear-nps", "取消全部勾选", NpsCenterView.ClearSelection, changesState: true, allowLargeSelection: true);
+                menu.Add("simulate-nps", "模拟检查已勾选工程", () => NpsRecycleRequested(this, new(true)), changesState: true, available: () => NpsCenterView.SelectedPlan.Count > 0);
+                menu.Add("recycle-nps", "删除已勾选项到回收站…", () => NpsRecycleRequested(this, new(false)), changesState: true,
+                    hint: "一次确认；回收整个工程文件夹，包括模型、脚本、结果和其他内容。孤立模型仅作线索。", available: () => NpsCenterView.SelectedPlan.Count > 0, allowLargeSelection: true);
+                break;
         }
         if (records)
         {
@@ -134,7 +158,7 @@ public partial class MainWindow
             menu.Add("open-log", "打开原始历史日志", OpenRawLog);
         menu.Add("refresh", records ? "刷新操作记录" : "重新扫描本页", () => RefreshFromMenu(page, records), changesState: true, allowLargeSelection: true);
         if (page is not "原件保护" and not "文件明细")
-            menu.Add("export", records ? "导出本页操作记录…" : "导出本页结果…", () => { if (records) ExportMenuRecords(menu.Owner); else ExportCurrentResultsButton_Click(this, new()); }, changesState: true,
+            menu.Add("export", records ? "导出本页操作记录…" : "导出本页结果…", () => { if (page == "目录收藏") ExportOverviewFavorites(); else if (records) ExportMenuRecords(menu.Owner); else ExportCurrentResultsButton_Click(this, new()); }, changesState: true,
                 hint: "使用CSV导出，包含本页结果；不是仅导出高亮行。", allowLargeSelection: true);
     }
     private void PlanEntries<T>(ResultMenuSession menu, Func<T, bool> allowed, Action<T, bool> set, string label)
@@ -159,6 +183,8 @@ public partial class MainWindow
             case "相似媒体": MediaScanRequested(this, EventArgs.Empty); break;
             case "开发环境": if (records) RefreshDevelopmentRecords(); else DevelopmentScanRequested(this, EventArgs.Empty); break;
             case "软件占用": if (records) RefreshSoftwareRecords(); else SoftwareScanRequested(this, EventArgs.Empty); break;
+            case "NPS 工程": if (records) RefreshNpsRecords(); else NpsScanRequested(this, EventArgs.Empty); break;
+            case "磁盘概览": case "目录收藏": _ = RefreshOverviewAsync(); break;
         }
     }
     private void AddMenuExclusions(IReadOnlyList<string> paths)
@@ -172,6 +198,10 @@ public partial class MainWindow
             if (ResultContextMenu.IsFilePath(item.FullPath) && paths.Any(p => DevelopmentCodexCatalog.Overlap(item.FullPath, p)))
             { item.IsSelected = false; item.Safety = DevelopmentSafety.Protected; item.CanRecycle = false; item.CanRemoveWorktree = false; item.CanManuallyRecycle = false; }
         ((DataGrid)DevelopmentCenterView.FindName("ResultGrid")).Items.Refresh();
+        foreach (var item in (NpsCenterView.Result?.Projects ?? []).Select(p => p.Cleanup).OfType<NpsCleanupItem>())
+            if (paths.Any(p => DevelopmentCodexCatalog.Overlap(item.FullPath, p)))
+            { item.CanRecycle = false; item.IsSelected = false; item.Evidence = "已加入永久排除，不可删除。"; }
+        NpsCenterView.RefreshRows();
         foreach (var item in SoftwareCenterView.Result?.Items ?? [])
             if (item.Registration.InstallPath.Length > 0 && _exclusionService.Contains(item.Registration.InstallPath)) { item.IsSelected = false; item.CanUninstall = false; item.Status = "参考/排除目录保护"; }
         ((DataGrid)SoftwareCenterView.FindName("ResultGrid")).Items.Refresh();

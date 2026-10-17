@@ -12,6 +12,9 @@ var projectRoot = Path.Combine(testRoot, "project");
 
 try
 {
+    if (args.Contains("--overview-only")) { await OverviewTests.RunAsync(testRoot); await OverviewTests.StandaloneUiAsync(); return 0; }
+    if (args.Contains("--nps-sample")) { await NpsProjectTests.SampleAsync(testRoot); return 0; }
+    if (args.Contains("--nps-only")) { await NpsProjectTests.RunAsync(testRoot, args.Contains("--test-recycle")); await NpsProjectTests.StandaloneUiAsync(); return 0; }
     if (args.Contains("--software-inventory-only")) { SoftwareTests.ReadRealInventory(); return 0; }
     if (args.Contains("--software-only")) { await SoftwareTests.RunAsync(testRoot); await SoftwareTests.RunStandaloneUiAsync(); return 0; }
     if (args.Contains("--development-only"))
@@ -201,6 +204,8 @@ try
     await MediaAnalysisTests.RunAsync(testRoot);
     await DevelopmentTests.RunAsync(testRoot, args.Contains("--test-recycle"));
     await SoftwareTests.RunAsync(testRoot);
+    await NpsProjectTests.RunAsync(testRoot, args.Contains("--test-recycle"));
+    await OverviewTests.RunAsync(testRoot);
     await SpaceTreeTests.RunAsync(testRoot, args.Contains("--test-recycle"));
     await ScanEngineTests.RunAsync(testRoot, args.Contains("--million"));
 

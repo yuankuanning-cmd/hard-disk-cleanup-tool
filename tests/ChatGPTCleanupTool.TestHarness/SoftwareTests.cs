@@ -106,7 +106,7 @@ internal static class SoftwareTests
     {
         var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var thread = new Thread(() => { try { var app = new App(); app.InitializeComponent(); var output = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "..", "outputs")); Directory.CreateDirectory(output); RunUi(output);
-            var main = new MainWindow(); var tabs = (TabControl)main.FindName("MainTabControl"); Check(tabs.Items.Count == 9 && main.FindName("SoftwareCenterView") is SoftwareCenter, "第九页未接入主窗口"); tabs.SelectedIndex = 8;
+            var main = new MainWindow(); var tabs = (TabControl)main.FindName("MainTabControl"); Check(tabs.Items.Count == 11 && main.FindName("SoftwareCenterView") is SoftwareCenter, "软件页未接入主窗口"); tabs.SelectedIndex = 8;
             ((SoftwareCenter)main.FindName("SoftwareCenterView")).SetResult(UiResult); var content = (FrameworkElement)main.Content; content.Margin = new Thickness(0); ((Panel)content).Background = main.Background;
             content.Measure(new Size(1320, 860)); content.Arrange(new Rect(0, 0, 1320, 860)); content.UpdateLayout(); Render(content, Path.Combine(output, "software-center-main-preview.png")); ContextMenuTests.RunUi(main, output); app.Shutdown(); completion.SetResult();
         } catch (Exception ex) { completion.SetException(ex); } }); thread.SetApartmentState(ApartmentState.STA); thread.Start(); return completion.Task;

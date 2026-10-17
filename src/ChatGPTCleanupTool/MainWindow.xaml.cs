@@ -53,6 +53,8 @@ public partial class MainWindow : Window
         MediaCenterView.ReferencesRequested += (_, _) => MainTabControl.SelectedIndex = 3;
         ConfigureDevelopment();
         ConfigureSoftware();
+        ConfigureNps();
+        ConfigureOverview();
         DuplicateCenterView.ReferenceProtectionChanged += (_, _) =>
         {
             try { MediaCenterView.UpdateReferenceProtection(_duplicateReferences.GetPaths()); }
@@ -79,11 +81,19 @@ public partial class MainWindow : Window
     {
         await RefreshHistoryAsync();
         await DuplicateCenterView.RefreshRecordsAsync();
-        await ScanAsync();
+        await RefreshOverviewAsync();
     }
 
     private async void Window_Closing(object? sender, CancelEventArgs e)
     {
+        _overviewCancellation.Cancel();
+        if (!IsLoaded) return; // Unshown diagnostics/tests must not overwrite the user's saved preferences.
+        if (!_engineCloseReady && _npsRun is { IsCompleted: false })
+        {
+            e.Cancel = true; _operationCancellation?.Cancel();
+            try { await _npsRun; } catch { }
+            _engineCloseReady = true; Close(); return;
+        }
         if (!_engineCloseReady && _softwareRun is { IsCompleted: false })
         {
             e.Cancel = true; _operationCancellation?.Cancel();
@@ -1266,6 +1276,7 @@ public partial class MainWindow : Window
         MediaCenterView?.SetSearchText(ResultSearchTextBox.Text);
         DevelopmentCenterView?.SetSearchText(ResultSearchTextBox.Text);
         SoftwareCenterView?.SetSearchText(ResultSearchTextBox.Text);
+        NpsCenterView?.SetSearchText(ResultSearchTextBox.Text);
         foreach (var source in new object[]
                  {
                      Categories, DetailFiles, AnalysisItems,
@@ -1399,6 +1410,12 @@ public partial class MainWindow : Window
                 ["软件", "类型", "发布者", "版本", "状态", "登记字节", "测量逻辑字节", "测量占用字节", "大小依据", "文件数", "可卸载", "依据", "路径"],
                 (SoftwareCenterView.Result?.Items ?? []).Select(i => (IReadOnlyList<string>)
                     [i.Name, i.KindText, i.Publisher, i.Version, i.Status, i.Registration.ReportedBytes.ToString(), i.LogicalBytes?.ToString() ?? "", i.AllocatedBytes?.ToString() ?? "", i.SizeBasis, i.FileCount.ToString(), i.CanUninstall ? "是" : "否", i.Evidence, i.FullPath]).ToList()),
+            "NPS 工程" => new ExportData("NPS工程",
+                ["工程", "类型", "版本", "清单创建时间", "模型文件标志", "逻辑字节", "实际占用字节", "文件数", "删除范围", "状态", "识别依据", "工程清单", "位置"],
+                (NpsCenterView.Result?.Projects ?? []).Select(p => (IReadOnlyList<string>)
+                    [p.Name, p.KindText, p.Version, p.Created, p.ModelFiles.ToString(), p.LogicalBytes?.ToString() ?? "", p.AllocatedBytes?.ToString() ?? "", p.FileCount?.ToString() ?? "", p.DeleteScope, p.CleanupStatus, p.Evidence, p.ManifestPath, p.FullPath]).ToList()),
+            "磁盘概览" => new ExportData("磁盘概览", ["磁盘", "卷标", "格式", "总字节", "已用字节", "剩余字节", "使用率", "空间状态"],
+                (OverviewCenterView.Snapshot?.Drives ?? []).Select(d => (IReadOnlyList<string>)[d.Root, d.Label, d.Format, d.TotalBytes.ToString(), d.UsedBytes.ToString(), d.FreeBytes.ToString(), d.UsedPercent.ToString("F1"), d.SpaceStatus]).ToList()),
             _ => new ExportData("结果", [], [])
         };
     }
@@ -1473,13 +1490,19 @@ public partial class MainWindow : Window
         SoftwareCenterView.IncludeGames = settings.SoftwareGames;
         SoftwareCenterView.FindResidues = settings.SoftwareResidues;
         SoftwareCenterView.MeasureDirectories = settings.SoftwareMeasure;
+        NpsCenterView.AllDisks = settings.NpsAllDisks;
+        NpsCenterView.IncludeRemovable = settings.NpsRemovable;
+        NpsCenterView.RootPath = settings.NpsPath ?? NpsCenterView.RootPath;
+        OverviewCenterView.SetFavoritePaths(settings.FavoriteScanPaths);
         ScanScopeWhitelistTextBox.Text = settings.ScanScopeWhitelist;
         MainTabControl.SelectedIndex = Math.Clamp(
-            settings.SelectedTabIndex, 0, Math.Max(0, MainTabControl.Items.Count - 1));
+            settings.InterfaceVersion < 3 ? 10 : settings.SelectedTabIndex, 0, Math.Max(0, MainTabControl.Items.Count - 1));
     }
 
     private AppSettings CaptureSettings() => new()
     {
+        InterfaceVersion = 3,
+        FavoriteScanPaths = OverviewCenterView.FavoritePaths.ToArray(),
         FastMode = IsFastModeEnabled,
         DryRun = IsDryRunEnabled,
         Days = DaysTextBox.Text,
@@ -1515,7 +1538,10 @@ public partial class MainWindow : Window
         SoftwareStore = SoftwareCenterView.IncludeStore,
         SoftwareGames = SoftwareCenterView.IncludeGames,
         SoftwareResidues = SoftwareCenterView.FindResidues,
-        SoftwareMeasure = SoftwareCenterView.MeasureDirectories
+        SoftwareMeasure = SoftwareCenterView.MeasureDirectories,
+        NpsAllDisks = NpsCenterView.AllDisks,
+        NpsRemovable = NpsCenterView.IncludeRemovable,
+        NpsPath = NpsCenterView.RootPath
     };
 
     private static string? BrowseForFolder(string initialPath, string title)
@@ -1778,6 +1804,7 @@ public partial class MainWindow : Window
         UpdateSelectedSummary();
         UpdateDuplicateSelection();
         UpdateCodexSmartSelection();
+        OverviewCenterView.SetCandidates(Categories);
     }
 
     private void UnsubscribeCurrentItems()

@@ -16,7 +16,7 @@ internal static class ContextMenuTests
     internal static void RunUi(MainWindow main, string output)
     {
         var tabs = (TabControl)main.FindName("MainTabControl");
-        Check(tabs.Items.Count == 9, "九页菜单覆盖缺失");
+        Check(tabs.Items.Count == 11, "十一页菜单覆盖缺失");
         foreach (TabItem tab in tabs.Items)
         {
             var page = (FrameworkElement)tab.Content;
@@ -36,10 +36,12 @@ internal static class ContextMenuTests
             ("MediaCenterView", new[] { "Results" }),
             ("DevelopmentCenterView", new[] { "ResultGrid", "RecordGrid" }),
             ("SoftwareCenterView", new[] { "ResultGrid", "RecordGrid" }),
+            ("NpsCenterView", new[] { "ProjectGrid", "RecordGrid" }),
+            ("OverviewCenterView", new[] { "DriveCards", "FavoriteItems" }),
             ("AnalysisExplorer", new[] { "Entries", "LargestGrid", "GrowthGrid", "DirectoryTree", "ExclusionsList", "Map" })
         })
             foreach (var name in names) grids.Add((FrameworkElement)((FrameworkElement)main.FindName(controlName)).FindName(name));
-        Check(grids.Count == 19 && grids.All(g => g.ContextMenu is not null), "19个结果/列表/树图/审计区域必须都有菜单");
+        Check(grids.Count == 23 && grids.All(g => g.ContextMenu is not null), "23个结果/列表/树图/审计区域必须都有菜单");
 
         var software = (SoftwareCenter)main.FindName("SoftwareCenterView");
         var a = Item("菜单夹具A", @"C:\fixture-only\a.bin", true);
@@ -124,7 +126,7 @@ internal static class ContextMenuTests
         software.SetResult(SoftwareTests.UiResult);
         content.UpdateLayout();
         Render(ResultContextMenu.BuildForTest(grid, SoftwareTests.UiResult.Items.FirstOrDefault(), true), Path.Combine(output, "context-menu-software-preview.png"));
-        Console.WriteLine($"PASS CONTEXT MENUS: all 9 pages + 19 result/list/tree/map/audit surfaces; actual right-click target, keyboard menu key, preserved multi-select, blank/stale protection, protected items, late busy guard, 1000 row cap, million-source no-enumeration ({watch.ElapsedMilliseconds} ms), duplicate keeper/reference and media group; no cleanup/uninstall/restore/clipboard writes");
+        Console.WriteLine($"PASS CONTEXT MENUS: all 11 pages + 23 result/list/tree/map/audit surfaces; actual right-click target, keyboard menu key, preserved multi-select, blank/stale protection, protected items, late busy guard, generic 1000 row cap, million-source no-enumeration ({watch.ElapsedMilliseconds} ms), duplicate keeper/reference and media group; no cleanup/uninstall/restore/clipboard writes");
     }
     private static SoftwareItem Item(string name, string path, bool allowed) => new() { Registration = new(name, "fixture", SoftwareKind.Desktop, name, "", "", path, 1), CanUninstall = allowed, Status = allowed ? "测试项" : "受保护" };
     private static DuplicateFileItem Duplicate(string leaf) => new() { GroupNumber = 1, Copies = 2, FullPath = @"C:\fixture-only\" + leaf, LogicalBytes = 1, AllocatedBytes = 4096, LogicalSize = "1 B", AllocatedSize = "4 KiB", Hash = "fixture", FileIdentity = leaf, IsFullHashVerified = true, LastWriteTime = DateTime.UtcNow };

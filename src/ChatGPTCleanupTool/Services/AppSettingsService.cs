@@ -46,6 +46,8 @@ public sealed class AppSettingsService
 
 public sealed record AppSettings
 {
+    public int InterfaceVersion { get; init; }
+    public string[] FavoriteScanPaths { get; init; } = [];
     public bool FastMode { get; init; } = true;
     public bool DryRun { get; init; }
     public string Days { get; init; } = "7";
@@ -82,4 +84,7 @@ public sealed record AppSettings
     public bool SoftwareGames { get; init; } = true;
     public bool SoftwareResidues { get; init; } = true;
     public bool SoftwareMeasure { get; init; }
+    public bool NpsAllDisks { get; init; } = true;
+    public bool NpsRemovable { get; init; }
+    public string? NpsPath { get; init; }
 }

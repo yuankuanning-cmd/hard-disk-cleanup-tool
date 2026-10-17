@@ -37,7 +37,7 @@
       <DataGrid.Columns>
        <DataGridTemplateColumn Header="选择" Width="48"><DataGridTemplateColumn.CellTemplate><DataTemplate><CheckBox HorizontalAlignment="Center" VerticalAlignment="Center" IsEnabled="{Binding IsSelectable}" IsChecked="{Binding IsSelected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
        <DataGridTextColumn Header="组" Width="45" Binding="{Binding GroupNumber}" IsReadOnly="True"/>
-       <DataGridTextColumn Header="角色 / 保护" Width="120" Binding="{Binding Role}" IsReadOnly="True"/>
+       <DataGridTextColumn Header="角色 / 保护" Width="120" Binding="{Binding Role}" ElementStyle="{StaticResource StatusText}" IsReadOnly="True"/>
        <DataGridTextColumn Header="逻辑大小" Width="90" Binding="{Binding LogicalSize}" IsReadOnly="True"/>
        <DataGridTextColumn Header="实际占用" Width="90" Binding="{Binding AllocatedSize}" IsReadOnly="True"/>
        <DataGridTextColumn Header="修改时间" Width="132" Binding="{Binding LastWriteTime, StringFormat={}{0:yyyy-MM-dd HH:mm:ss}}" IsReadOnly="True"/>
